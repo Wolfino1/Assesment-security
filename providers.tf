@@ -14,6 +14,10 @@ terraform {
       source  = "hashicorp/random"
       version = "~> 3.6"
     }
+    null = {
+      source  = "hashicorp/null"
+      version = "~> 3.2"
+    }
   }
 }
 
@@ -23,6 +27,16 @@ terraform {
 
 provider "aws" {
   region = var.region
+
+  default_tags {
+    tags = local.common_tags
+  }
+}
+
+# Provider para WAF CloudFront (debe estar en us-east-1)
+provider "aws" {
+  alias  = "us_east_1"
+  region = "us-east-1"
 
   default_tags {
     tags = local.common_tags

@@ -700,10 +700,6 @@ resource "aws_iam_role" "rds_monitoring" {
     ]
   })
 
-  managed_policy_arns = [
-    "arn:aws:iam::aws:policy/service-role/AmazonRDSEnhancedMonitoringRole"
-  ]
-
   tags = merge(
     local.common_tags,
     {
@@ -711,4 +707,239 @@ resource "aws_iam_role" "rds_monitoring" {
       Type = "RDSMonitoring"
     }
   )
+}
+
+resource "aws_iam_role_policy_attachment" "rds_monitoring" {
+  role       = aws_iam_role.rds_monitoring.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonRDSEnhancedMonitoringRole"
+}
+
+
+# ============================================
+# AWS WAF - Web Application Firewall (PC-IAC-020)
+# ============================================
+
+# WAF Web ACL para CloudFront (debe estar en us-east-1)
+resource "aws_wafv2_web_acl" "cloudfront" {
+  count    = var.enable_waf ? 1 : 0
+  provider = aws.us_east_1
+
+  name        = local.waf_name
+  description = "WAF para CloudFront con reglas gestionadas de AWS"
+  scope       = "CLOUDFRONT"
+
+  default_action {
+    allow {}
+  }
+
+  # Regla 1: AWS Managed Rules - Common Rule Set (OWASP Top 10)
+  rule {
+    name     = "AWSManagedRulesCommonRuleSet"
+    priority = 1
+
+    override_action {
+      none {}
+    }
+
+    statement {
+      managed_rule_group_statement {
+        vendor_name = "AWS"
+        name        = "AWSManagedRulesCommonRuleSet"
+      }
+    }
+
+    visibility_config {
+      cloudwatch_metrics_enabled = true
+      metric_name                = "${local.governance_prefix}-waf-common-rules"
+      sampled_requests_enabled   = true
+    }
+  }
+
+  # Regla 2: AWS Managed Rules - SQL Injection Protection
+  rule {
+    name     = "AWSManagedRulesSQLiRuleSet"
+    priority = 2
+
+    override_action {
+      none {}
+    }
+
+    statement {
+      managed_rule_group_statement {
+        vendor_name = "AWS"
+        name        = "AWSManagedRulesSQLiRuleSet"
+      }
+    }
+
+    visibility_config {
+      cloudwatch_metrics_enabled = true
+      metric_name                = "${local.governance_prefix}-waf-sqli-rules"
+      sampled_requests_enabled   = true
+    }
+  }
+
+  # Regla 3: AWS Managed Rules - IP Reputation List
+  rule {
+    name     = "AWSManagedRulesAmazonIpReputationList"
+    priority = 3
+
+    override_action {
+      none {}
+    }
+
+    statement {
+      managed_rule_group_statement {
+        vendor_name = "AWS"
+        name        = "AWSManagedRulesAmazonIpReputationList"
+      }
+    }
+
+    visibility_config {
+      cloudwatch_metrics_enabled = true
+      metric_name                = "${local.governance_prefix}-waf-ip-reputation"
+      sampled_requests_enabled   = true
+    }
+  }
+
+  # Regla 4: AWS Managed Rules - Known Bad Inputs
+  rule {
+    name     = "AWSManagedRulesKnownBadInputsRuleSet"
+    priority = 4
+
+    override_action {
+      none {}
+    }
+
+    statement {
+      managed_rule_group_statement {
+        vendor_name = "AWS"
+        name        = "AWSManagedRulesKnownBadInputsRuleSet"
+      }
+    }
+
+    visibility_config {
+      cloudwatch_metrics_enabled = true
+      metric_name                = "${local.governance_prefix}-waf-bad-inputs"
+      sampled_requests_enabled   = true
+    }
+  }
+
+  # Regla 5: Rate Limiting (protección contra DDoS de capa 7)
+  rule {
+    name     = "RateLimitRule"
+    priority = 5
+
+    action {
+      block {}
+    }
+
+    statement {
+      rate_based_statement {
+        limit              = var.waf_rate_limit
+        aggregate_key_type = "IP"
+      }
+    }
+
+    visibility_config {
+      cloudwatch_metrics_enabled = true
+      metric_name                = "${local.governance_prefix}-waf-rate-limit"
+      sampled_requests_enabled   = true
+    }
+  }
+
+  visibility_config {
+    cloudwatch_metrics_enabled = true
+    metric_name                = "${local.governance_prefix}-waf-acl"
+    sampled_requests_enabled   = true
+  }
+
+  tags = merge(
+    local.common_tags,
+    {
+      Name  = local.waf_name
+      Scope = "CLOUDFRONT"
+    }
+  )
+}
+
+# ============================================
+# AWS GuardDuty - Detección de Amenazas (PC-IAC-020)
+# ============================================
+
+resource "aws_guardduty_detector" "main" {
+  count = var.enable_guardduty ? 1 : 0
+
+  enable                       = true
+  finding_publishing_frequency = var.guardduty_finding_frequency
+
+  # Habilitar protección de datos en S3
+  datasources {
+    s3_logs {
+      enable = true
+    }
+    kubernetes {
+      audit_logs {
+        enable = true
+      }
+    }
+    malware_protection {
+      scan_ec2_instance_with_findings {
+        ebs_volumes {
+          enable = true
+        }
+      }
+    }
+  }
+
+  tags = merge(
+    local.common_tags,
+    {
+      Name = local.guardduty_name
+    }
+  )
+}
+
+# ============================================
+# AWS Shield Standard (PC-IAC-020)
+# ============================================
+
+# Nota: AWS Shield Standard está habilitado por defecto en todas las cuentas de AWS
+# sin costo adicional. Proporciona protección automática contra ataques DDoS comunes
+# en las capas 3 y 4 (red y transporte) para todos los recursos de AWS.
+#
+# Shield Standard protege automáticamente:
+# - Amazon CloudFront
+# - Amazon Route 53
+# - Elastic Load Balancing (ALB, NLB, CLB)
+# - AWS Global Accelerator
+# - Elastic IP addresses asociadas a instancias EC2
+#
+# No requiere configuración adicional en Terraform, pero se documenta aquí
+# para cumplimiento y auditoría.
+#
+# Para Shield Advanced (protección mejorada con costo adicional), se requiere
+# configuración manual a través de la consola de AWS o AWS CLI, ya que implica
+# un compromiso de suscripción de 1 año.
+#
+# Referencia: https://aws.amazon.com/shield/features/
+
+# Recurso de documentación para cumplimiento
+resource "null_resource" "shield_standard_documentation" {
+  triggers = {
+    documentation = jsonencode({
+      service     = "AWS Shield Standard"
+      status      = "Enabled by default"
+      scope       = "Global"
+      protection  = "Layer 3/4 DDoS protection"
+      cost        = "No additional cost"
+      resources   = ["CloudFront", "Route53", "ELB", "Global Accelerator", "Elastic IPs"]
+      compliance  = "PC-IAC-020"
+      environment = var.environment
+      timestamp   = timestamp()
+    })
+  }
+
+  provisioner "local-exec" {
+    command = "echo 'AWS Shield Standard is enabled by default for all AWS accounts'"
+  }
 }

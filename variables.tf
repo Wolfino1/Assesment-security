@@ -164,6 +164,42 @@ variable "lambda_function_name" {
 }
 
 # ============================================
+# Variables de WAF
+# ============================================
+
+variable "enable_waf" {
+  description = "Habilitar AWS WAF para CloudFront"
+  type        = bool
+  default     = true
+}
+
+variable "waf_rate_limit" {
+  description = "Límite de requests por IP en 5 minutos (rate limiting)"
+  type        = number
+  default     = 2000
+}
+
+# ============================================
+# Variables de GuardDuty
+# ============================================
+
+variable "enable_guardduty" {
+  description = "Habilitar AWS GuardDuty para detección de amenazas"
+  type        = bool
+  default     = true
+}
+
+variable "guardduty_finding_frequency" {
+  description = "Frecuencia de publicación de hallazgos de GuardDuty (FIFTEEN_MINUTES, ONE_HOUR, SIX_HOURS)"
+  type        = string
+  default     = "FIFTEEN_MINUTES"
+  validation {
+    condition     = contains(["FIFTEEN_MINUTES", "ONE_HOUR", "SIX_HOURS"], var.guardduty_finding_frequency)
+    error_message = "La frecuencia debe ser FIFTEEN_MINUTES, ONE_HOUR o SIX_HOURS."
+  }
+}
+
+# ============================================
 # Tags Adicionales (PC-IAC-004)
 # ============================================
 

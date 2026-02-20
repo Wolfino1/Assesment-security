@@ -23,6 +23,16 @@ El módulo despliega una arquitectura de seguridad completa que incluye:
 - Soporte para nombres alternativos (SANs)
 - Validación por DNS o EMAIL
 
+### Protección contra Amenazas
+- 1 AWS WAF Web ACL para CloudFront con 5 reglas:
+  - AWS Managed Rules Common Rule Set (OWASP Top 10)
+  - AWS Managed Rules SQL Injection Protection
+  - AWS Managed Rules IP Reputation List
+  - AWS Managed Rules Known Bad Inputs
+  - Rate Limiting personalizable
+- 1 AWS GuardDuty Detector para detección de amenazas
+- AWS Shield Standard (habilitado por defecto)
+
 ### Observabilidad de Red
 - VPC Flow Logs capturando todo el tráfico de la VPC
 - CloudWatch Log Group con retención configurable
@@ -100,6 +110,20 @@ Amazon Personalize API
 - Lambda fuera de VPC para acceso directo a servicios AWS gestionados
 - Egreso a internet controlado mediante NAT Gateway para aplicaciones en VPC
 
+### Protección de Perímetro
+- WAF con reglas gestionadas de AWS para protección contra OWASP Top 10
+- Rate limiting para prevenir ataques de denegación de servicio
+- Métricas de CloudWatch habilitadas para todas las reglas WAF
+
+### Detección de Amenazas
+- GuardDuty habilitado con frecuencia de hallazgos de 15 minutos
+- Protección de datos en S3, Kubernetes y EC2
+- Escaneo de malware en volúmenes EBS
+
+### Protección Anti-DDoS
+- Shield Standard habilitado por defecto (sin costo adicional)
+- Protección automática en capas 3 y 4 para CloudFront, Route53, ELB y Elastic IPs
+
 ### Observabilidad
 - VPC Flow Logs capturando todo el tráfico
 - Retención configurable de logs
@@ -140,6 +164,14 @@ module "security" {
 
   # Configuración de VPC Flow Logs
   flow_logs_retention_days = 7
+
+  # Configuración de WAF
+  enable_waf     = true
+  waf_rate_limit = 2000
+
+  # Configuración de GuardDuty
+  enable_guardduty            = true
+  guardduty_finding_frequency = "FIFTEEN_MINUTES"
 
   # Tags adicionales
   additional_tags = {
@@ -192,6 +224,10 @@ module "security" {
 | subject_alternative_names | Nombres alternativos del dominio | list(string) | [] | No |
 | validation_method | Método de validación del certificado (DNS o EMAIL) | string | "DNS" | No |
 | flow_logs_retention_days | Días de retención para VPC Flow Logs | number | 7 | No |
+| enable_waf | Habilitar AWS WAF para CloudFront | bool | true | No |
+| waf_rate_limit | Límite de requests por IP en 5 minutos | number | 2000 | No |
+| enable_guardduty | Habilitar AWS GuardDuty para detección de amenazas | bool | true | No |
+| guardduty_finding_frequency | Frecuencia de publicación de hallazgos (FIFTEEN_MINUTES, ONE_HOUR, SIX_HOURS) | string | "FIFTEEN_MINUTES" | No |
 | ecr_repository_arns | ARNs de los repositorios ECR | list(string) | [] | No |
 | kinesis_stream_arn | ARN del Kinesis Data Stream | string | "" | No |
 | s3_bucket_arn | ARN del bucket S3 para Firehose | string | "" | No |
@@ -234,15 +270,25 @@ module "security" {
 | personalize_role_name | Nombre del rol de Amazon Personalize |
 | rds_monitoring_role_arn | ARN del rol de monitoreo de RDS |
 | rds_monitoring_role_name | Nombre del rol de monitoreo de RDS |
+| waf_web_acl_id | ID del WAF Web ACL para CloudFront |
+| waf_web_acl_arn | ARN del WAF Web ACL para CloudFront |
+| waf_web_acl_capacity | Capacidad utilizada por el WAF Web ACL |
+| guardduty_detector_id | ID del detector de GuardDuty |
+| guardduty_detector_arn | ARN del detector de GuardDuty |
+| guardduty_account_id | ID de la cuenta de AWS con GuardDuty habilitado |
+| shield_standard_status | Estado de AWS Shield Standard |
 | security_summary | Resumen de la infraestructura de seguridad creada |
 
 ## Requisitos
 
 - Terraform >= 1.5.0
-- AWS Provider ~> 5.0
+- AWS Provider ~> 5.0 (con alias us_east_1 para WAF)
 - Random Provider ~> 3.6
 - Credenciales de AWS configuradas
 - Módulo de networking desplegado previamente (con tags de gobernanza correctos)
+
+### Nota sobre WAF y CloudFront
+El WAF para CloudFront debe crearse en la región us-east-1 independientemente de la región donde se desplieguen los demás recursos. El módulo incluye un provider alias configurado automáticamente para esto.
 
 ### Requisitos para Detección Automática
 
@@ -305,6 +351,15 @@ Se captura todo el tráfico (ALL) para tener visibilidad completa, con retenció
 
 ### Roles IAM Específicos
 Cada servicio tiene su propio rol con permisos mínimos necesarios, evitando roles compartidos que podrían escalar privilegios.
+
+### AWS WAF para CloudFront
+Se implementa WAF con reglas gestionadas de AWS que cubren las amenazas más comunes (OWASP Top 10, SQL Injection, IPs maliciosas). El rate limiting protege contra ataques de denegación de servicio a nivel de aplicación.
+
+### GuardDuty para Detección de Amenazas
+GuardDuty analiza continuamente los logs de VPC Flow, CloudTrail y DNS para detectar comportamientos anómalos y amenazas. La frecuencia de 15 minutos permite respuesta rápida a incidentes.
+
+### Shield Standard
+AWS Shield Standard está habilitado por defecto sin costo adicional y proporciona protección automática contra ataques DDoS comunes en las capas 3 y 4. Para protección avanzada (Shield Advanced), se requiere suscripción manual.
 
 ## Seguridad Adicional
 

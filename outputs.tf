@@ -178,6 +178,60 @@ output "rds_monitoring_role_name" {
 }
 
 # ============================================
+# WAF Outputs
+# ============================================
+
+output "waf_web_acl_id" {
+  description = "ID del WAF Web ACL para CloudFront"
+  value       = var.enable_waf ? aws_wafv2_web_acl.cloudfront[0].id : null
+}
+
+output "waf_web_acl_arn" {
+  description = "ARN del WAF Web ACL para CloudFront"
+  value       = var.enable_waf ? aws_wafv2_web_acl.cloudfront[0].arn : null
+}
+
+output "waf_web_acl_capacity" {
+  description = "Capacidad utilizada por el WAF Web ACL"
+  value       = var.enable_waf ? aws_wafv2_web_acl.cloudfront[0].capacity : null
+}
+
+# ============================================
+# GuardDuty Outputs
+# ============================================
+
+output "guardduty_detector_id" {
+  description = "ID del detector de GuardDuty"
+  value       = var.enable_guardduty ? aws_guardduty_detector.main[0].id : null
+}
+
+output "guardduty_detector_arn" {
+  description = "ARN del detector de GuardDuty"
+  value       = var.enable_guardduty ? aws_guardduty_detector.main[0].arn : null
+}
+
+output "guardduty_account_id" {
+  description = "ID de la cuenta de AWS con GuardDuty habilitado"
+  value       = var.enable_guardduty ? aws_guardduty_detector.main[0].account_id : null
+}
+
+# ============================================
+# Shield Outputs
+# ============================================
+
+output "shield_standard_status" {
+  description = "Estado de AWS Shield Standard (habilitado por defecto)"
+  value = {
+    enabled     = true
+    scope       = "Global"
+    protection  = "Layer 3/4 DDoS protection"
+    cost        = "No additional cost"
+    resources   = ["CloudFront", "Route53", "ELB", "Global Accelerator", "Elastic IPs"]
+    compliance  = "PC-IAC-020"
+  }
+}
+
+# ============================================
 # Summary Output
 # ============================================
 
@@ -216,6 +270,13 @@ output "security_summary" {
       lambda_execution   = aws_iam_role.lambda_execution.arn
       personalize        = aws_iam_role.personalize.arn
       rds_monitoring     = aws_iam_role.rds_monitoring.arn
+    }
+    threat_protection = {
+      waf_enabled       = var.enable_waf
+      waf_acl_arn       = var.enable_waf ? aws_wafv2_web_acl.cloudfront[0].arn : null
+      guardduty_enabled = var.enable_guardduty
+      guardduty_id      = var.enable_guardduty ? aws_guardduty_detector.main[0].id : null
+      shield_standard   = "Enabled by default"
     }
   }
 }

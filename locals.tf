@@ -45,4 +45,7 @@ locals {
   lambda_execution_role    = "${local.governance_prefix}-role-lambda-execution"
   personalize_role         = "${local.governance_prefix}-role-personalize"
   rds_monitoring_role      = "${local.governance_prefix}-role-rds-monitoring"
+  
+  waf_name                 = "${local.governance_prefix}-waf-cloudfront"
+  guardduty_name           = "${local.governance_prefix}-guardduty-detector"
 }
