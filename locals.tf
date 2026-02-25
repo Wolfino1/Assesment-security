@@ -48,4 +48,7 @@ locals {
   
   waf_name                 = "${local.governance_prefix}-waf-cloudfront"
   guardduty_name           = "${local.governance_prefix}-guardduty-detector"
+  
+  cognito_user_pool_name   = "${local.governance_prefix}-user-pool"
+  cognito_client_name      = "${local.governance_prefix}-app-client"
 }

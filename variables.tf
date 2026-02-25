@@ -200,6 +200,50 @@ variable "guardduty_finding_frequency" {
 }
 
 # ============================================
+# Variables de Cognito
+# ============================================
+
+variable "enable_cognito" {
+  description = "Habilitar AWS Cognito User Pool como proveedor de identidad"
+  type        = bool
+  default     = true
+}
+
+variable "cognito_domain_prefix" {
+  description = "Prefijo del dominio de Cognito (ej: auth para auth.assesment.pragma.com.co)"
+  type        = string
+  default     = "auth"
+}
+
+variable "cognito_custom_domain" {
+  description = "Dominio personalizado completo para Cognito (ej: auth.assesment.pragma.com.co). Si se proporciona, se usará en lugar del prefijo"
+  type        = string
+  default     = ""
+}
+
+variable "password_minimum_length" {
+  description = "Longitud mínima de la contraseña"
+  type        = number
+  default     = 12
+  validation {
+    condition     = var.password_minimum_length >= 12
+    error_message = "La longitud mínima de la contraseña debe ser al menos 12 caracteres."
+  }
+}
+
+variable "cognito_callback_urls" {
+  description = "URLs de callback permitidas para el cliente de Cognito"
+  type        = list(string)
+  default     = ["https://localhost:3000/callback"]
+}
+
+variable "cognito_logout_urls" {
+  description = "URLs de logout permitidas para el cliente de Cognito"
+  type        = list(string)
+  default     = ["https://localhost:3000/logout"]
+}
+
+# ============================================
 # Tags Adicionales (PC-IAC-004)
 # ============================================
 

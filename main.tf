@@ -943,3 +943,163 @@ resource "null_resource" "shield_standard_documentation" {
     command = "echo 'AWS Shield Standard is enabled by default for all AWS accounts'"
   }
 }
+
+
+# ============================================
+# AWS Cognito - Identity Provider (PC-IAC-020)
+# ============================================
+
+# Cognito User Pool
+resource "aws_cognito_user_pool" "main" {
+  count = var.enable_cognito ? 1 : 0
+
+  name = local.cognito_user_pool_name
+
+  # Email como identificador principal
+  username_attributes      = ["email"]
+  auto_verified_attributes = ["email"]
+
+  # Políticas de contraseña robustas
+  password_policy {
+    minimum_length                   = var.password_minimum_length
+    require_lowercase                = true
+    require_uppercase                = true
+    require_numbers                  = true
+    require_symbols                  = true
+    temporary_password_validity_days = 7
+  }
+
+  # Atributos del esquema
+  schema {
+    name                     = "email"
+    attribute_data_type      = "String"
+    required                 = true
+    mutable                  = true
+    developer_only_attribute = false
+
+    string_attribute_constraints {
+      min_length = 1
+      max_length = 256
+    }
+  }
+
+  schema {
+    name                     = "name"
+    attribute_data_type      = "String"
+    required                 = false
+    mutable                  = true
+    developer_only_attribute = false
+
+    string_attribute_constraints {
+      min_length = 1
+      max_length = 256
+    }
+  }
+
+  # Configuración de email
+  email_configuration {
+    email_sending_account = "COGNITO_DEFAULT"
+  }
+
+  # Políticas de recuperación de cuenta
+  account_recovery_setting {
+    recovery_mechanism {
+      name     = "verified_email"
+      priority = 1
+    }
+  }
+
+  # Configuración de dispositivos
+  device_configuration {
+    challenge_required_on_new_device      = true
+    device_only_remembered_on_user_prompt = true
+  }
+
+  # Prevención de compromiso de cuentas
+  user_pool_add_ons {
+    advanced_security_mode = "ENFORCED"
+  }
+
+  # Cifrado con KMS Customer Managed Key
+  user_attribute_update_settings {
+    attributes_require_verification_before_update = ["email"]
+  }
+
+  tags = merge(
+    local.common_tags,
+    {
+      Name = local.cognito_user_pool_name
+      Type = "CognitoUserPool"
+    }
+  )
+}
+
+# Cognito User Pool Client
+resource "aws_cognito_user_pool_client" "main" {
+  count = var.enable_cognito ? 1 : 0
+
+  name         = local.cognito_client_name
+  user_pool_id = aws_cognito_user_pool.main[0].id
+
+  # Generar client secret
+  generate_secret = true
+
+  # Flujos de autenticación permitidos
+  explicit_auth_flows = [
+    "ALLOW_USER_PASSWORD_AUTH",
+    "ALLOW_REFRESH_TOKEN_AUTH",
+    "ALLOW_USER_SRP_AUTH"
+  ]
+
+  # Configuración de tokens
+  refresh_token_validity = 30
+  access_token_validity  = 60
+  id_token_validity      = 60
+
+  token_validity_units {
+    refresh_token = "days"
+    access_token  = "minutes"
+    id_token      = "minutes"
+  }
+
+  # URLs de callback y logout
+  callback_urls = var.cognito_callback_urls
+  logout_urls   = var.cognito_logout_urls
+
+  # Scopes OAuth permitidos
+  allowed_oauth_flows_user_pool_client = true
+  allowed_oauth_flows                  = ["code", "implicit"]
+  allowed_oauth_scopes                 = ["email", "openid", "profile"]
+
+  # Configuración de lectura/escritura de atributos
+  read_attributes = [
+    "email",
+    "email_verified",
+    "name"
+  ]
+
+  write_attributes = [
+    "email",
+    "name"
+  ]
+
+  # Prevenir destrucción accidental del cliente
+  prevent_user_existence_errors = "ENABLED"
+}
+
+# Cognito Domain - Dominio personalizado con certificado ACM
+resource "aws_cognito_user_pool_domain" "main" {
+  count = var.enable_cognito && var.cognito_custom_domain != "" ? 1 : 0
+
+  domain          = var.cognito_custom_domain
+  certificate_arn = aws_acm_certificate.main.arn
+  user_pool_id    = aws_cognito_user_pool.main[0].id
+}
+
+# Cognito Domain - Dominio de AWS (fallback si no hay dominio personalizado)
+resource "aws_cognito_user_pool_domain" "aws_domain" {
+  count = var.enable_cognito && var.cognito_custom_domain == "" ? 1 : 0
+
+  domain       = "${local.governance_prefix}-${var.cognito_domain_prefix}"
+  user_pool_id = aws_cognito_user_pool.main[0].id
+}

@@ -232,6 +232,54 @@ output "shield_standard_status" {
 }
 
 # ============================================
+# Cognito Outputs
+# ============================================
+
+output "cognito_user_pool_id" {
+  description = "ID del Cognito User Pool"
+  value       = var.enable_cognito ? aws_cognito_user_pool.main[0].id : null
+}
+
+output "cognito_user_pool_arn" {
+  description = "ARN del Cognito User Pool"
+  value       = var.enable_cognito ? aws_cognito_user_pool.main[0].arn : null
+}
+
+output "cognito_user_pool_endpoint" {
+  description = "Endpoint del Cognito User Pool"
+  value       = var.enable_cognito ? aws_cognito_user_pool.main[0].endpoint : null
+}
+
+output "cognito_client_id" {
+  description = "ID del cliente de aplicación de Cognito"
+  value       = var.enable_cognito ? aws_cognito_user_pool_client.main[0].id : null
+}
+
+output "cognito_client_secret" {
+  description = "Secret del cliente de aplicación de Cognito (sensible)"
+  value       = var.enable_cognito ? aws_cognito_user_pool_client.main[0].client_secret : null
+  sensitive   = true
+}
+
+output "cognito_domain_url" {
+  description = "URL del dominio de Cognito"
+  value = var.enable_cognito ? (
+    var.cognito_custom_domain != "" ? 
+    "https://${var.cognito_custom_domain}" : 
+    "https://${local.governance_prefix}-${var.cognito_domain_prefix}.auth.${var.region}.amazoncognito.com"
+  ) : null
+}
+
+output "cognito_hosted_ui_url" {
+  description = "URL de la interfaz de usuario hospedada de Cognito"
+  value = var.enable_cognito ? (
+    var.cognito_custom_domain != "" ? 
+    "https://${var.cognito_custom_domain}/login" : 
+    "https://${local.governance_prefix}-${var.cognito_domain_prefix}.auth.${var.region}.amazoncognito.com/login"
+  ) : null
+}
+
+# ============================================
 # Summary Output
 # ============================================
 
@@ -277,6 +325,11 @@ output "security_summary" {
       guardduty_enabled = var.enable_guardduty
       guardduty_id      = var.enable_guardduty ? aws_guardduty_detector.main[0].id : null
       shield_standard   = "Enabled by default"
+    }
+    identity_provider = {
+      cognito_enabled      = var.enable_cognito
+      user_pool_id         = var.enable_cognito ? aws_cognito_user_pool.main[0].id : null
+      cognito_domain       = var.enable_cognito ? (var.cognito_custom_domain != "" ? var.cognito_custom_domain : "${local.governance_prefix}-${var.cognito_domain_prefix}") : null
     }
   }
 }

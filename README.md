@@ -33,6 +33,18 @@ El módulo despliega una arquitectura de seguridad completa que incluye:
 - 1 AWS GuardDuty Detector para detección de amenazas
 - AWS Shield Standard (habilitado por defecto)
 
+### Gestión de Identidad y Acceso
+- 1 AWS Cognito User Pool como proveedor de identidad
+  - Email como identificador principal con auto-verificación
+  - Políticas de contraseña robustas (mín. 12 caracteres)
+  - Cifrado de datos en reposo con KMS
+  - Advanced Security Mode habilitado
+- 1 Cognito User Pool Client para la aplicación
+  - Client secret generado automáticamente
+  - Flujos de autenticación: USER_PASSWORD, REFRESH_TOKEN, USER_SRP
+  - OAuth 2.0 con scopes: email, openid, profile
+- 1 Cognito Domain personalizado con certificado ACM
+
 ### Observabilidad de Red
 - VPC Flow Logs capturando todo el tráfico de la VPC
 - CloudWatch Log Group con retención configurable
@@ -124,6 +136,15 @@ Amazon Personalize API
 - Shield Standard habilitado por defecto (sin costo adicional)
 - Protección automática en capas 3 y 4 para CloudFront, Route53, ELB y Elastic IPs
 
+### Gestión de Identidad con Cognito
+- User Pool configurado con email como identificador principal
+- Políticas de contraseña robustas (mínimo 12 caracteres, requiere números, símbolos, mayúsculas y minúsculas)
+- Advanced Security Mode habilitado para prevención de compromiso de cuentas
+- Cifrado de datos en reposo con KMS Customer Managed Key
+- Dominio personalizado con certificado ACM para URLs branded (ej: auth.assesment.pragma.com.co)
+- OAuth 2.0 con flujos de autenticación seguros
+- Client secret generado automáticamente para la aplicación
+
 ### Observabilidad
 - VPC Flow Logs capturando todo el tráfico
 - Retención configurable de logs
@@ -172,6 +193,13 @@ module "security" {
   # Configuración de GuardDuty
   enable_guardduty            = true
   guardduty_finding_frequency = "FIFTEEN_MINUTES"
+
+  # Configuración de Cognito
+  enable_cognito         = true
+  cognito_custom_domain  = "auth.assesment.pragma.com.co"
+  password_minimum_length = 12
+  cognito_callback_urls  = ["https://myapp.example.com/callback"]
+  cognito_logout_urls    = ["https://myapp.example.com/logout"]
 
   # Tags adicionales
   additional_tags = {
@@ -228,6 +256,12 @@ module "security" {
 | waf_rate_limit | Límite de requests por IP en 5 minutos | number | 2000 | No |
 | enable_guardduty | Habilitar AWS GuardDuty para detección de amenazas | bool | true | No |
 | guardduty_finding_frequency | Frecuencia de publicación de hallazgos (FIFTEEN_MINUTES, ONE_HOUR, SIX_HOURS) | string | "FIFTEEN_MINUTES" | No |
+| enable_cognito | Habilitar AWS Cognito User Pool como proveedor de identidad | bool | true | No |
+| cognito_custom_domain | Dominio personalizado completo para Cognito (ej: auth.assesment.pragma.com.co) | string | "" | No |
+| cognito_domain_prefix | Prefijo del dominio de Cognito si no se usa dominio personalizado | string | "auth" | No |
+| password_minimum_length | Longitud mínima de la contraseña | number | 12 | No |
+| cognito_callback_urls | URLs de callback permitidas para el cliente de Cognito | list(string) | ["https://localhost:3000/callback"] | No |
+| cognito_logout_urls | URLs de logout permitidas para el cliente de Cognito | list(string) | ["https://localhost:3000/logout"] | No |
 | ecr_repository_arns | ARNs de los repositorios ECR | list(string) | [] | No |
 | kinesis_stream_arn | ARN del Kinesis Data Stream | string | "" | No |
 | s3_bucket_arn | ARN del bucket S3 para Firehose | string | "" | No |
@@ -277,6 +311,13 @@ module "security" {
 | guardduty_detector_arn | ARN del detector de GuardDuty |
 | guardduty_account_id | ID de la cuenta de AWS con GuardDuty habilitado |
 | shield_standard_status | Estado de AWS Shield Standard |
+| cognito_user_pool_id | ID del Cognito User Pool |
+| cognito_user_pool_arn | ARN del Cognito User Pool |
+| cognito_user_pool_endpoint | Endpoint del Cognito User Pool |
+| cognito_client_id | ID del cliente de aplicación de Cognito |
+| cognito_client_secret | Secret del cliente de aplicación de Cognito (sensible) |
+| cognito_domain_url | URL del dominio de Cognito |
+| cognito_hosted_ui_url | URL de la interfaz de usuario hospedada de Cognito |
 | security_summary | Resumen de la infraestructura de seguridad creada |
 
 ## Requisitos
@@ -360,6 +401,22 @@ GuardDuty analiza continuamente los logs de VPC Flow, CloudTrail y DNS para dete
 
 ### Shield Standard
 AWS Shield Standard está habilitado por defecto sin costo adicional y proporciona protección automática contra ataques DDoS comunes en las capas 3 y 4. Para protección avanzada (Shield Advanced), se requiere suscripción manual.
+
+### AWS Cognito como Identity Provider
+Se implementa Cognito User Pool como proveedor de identidad centralizado para la aplicación ECS. 
+
+**Características clave:**
+- Email como identificador único simplifica la experiencia del usuario
+- Políticas de contraseña robustas cumplen con estándares de seguridad empresarial
+- Advanced Security Mode detecta y previene intentos de compromiso de cuentas
+- Dominio personalizado con certificado ACM proporciona URLs branded y profesionales
+- OAuth 2.0 permite integración con aplicaciones web y móviles
+- Client secret protege la comunicación entre la aplicación y Cognito
+
+**Integración con otros recursos:**
+- Usa el certificado ACM del módulo para el dominio personalizado
+- Cifra datos en reposo con la KMS Customer Managed Key del módulo
+- Se integra con el ALB para autenticación de usuarios antes de acceder a la aplicación
 
 ## Seguridad Adicional
 

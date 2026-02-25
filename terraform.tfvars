@@ -82,6 +82,26 @@ enable_guardduty            = true
 guardduty_finding_frequency = "FIFTEEN_MINUTES"  # FIFTEEN_MINUTES, ONE_HOUR, SIX_HOURS
 
 # ============================================
+# Configuración de Cognito
+# ============================================
+
+enable_cognito         = true
+cognito_custom_domain  = "auth.assesment.pragma.com.co"  # Dominio personalizado
+cognito_domain_prefix  = "auth"                           # Usado si no hay dominio personalizado
+password_minimum_length = 12
+
+# URLs de callback y logout para la aplicación
+cognito_callback_urls = [
+  "https://assesment.pragma.com.co/callback",
+  "https://localhost:3000/callback"
+]
+
+cognito_logout_urls = [
+  "https://assesment.pragma.com.co/logout",
+  "https://localhost:3000/logout"
+]
+
+# ============================================
 # Tags Adicionales (PC-IAC-004)
 # ============================================
 
