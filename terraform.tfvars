@@ -3,7 +3,7 @@
 # ============================================
 
 client      = "pragma"
-project     = "myproject"
+project     = "Assesment"
 environment = "dev"
 region      = "us-east-1"
 
@@ -86,7 +86,7 @@ guardduty_finding_frequency = "FIFTEEN_MINUTES"  # FIFTEEN_MINUTES, ONE_HOUR, SI
 # ============================================
 
 additional_tags = {
-  Owner      = "CloudOps Team"
-  CostCenter = "Engineering"
-  Compliance = "SOC2"
+  Owner      = "santiago.guerrero"
+  CostCenter = "00000"
+  Purpose    = "Security Infrastructure"
 }
